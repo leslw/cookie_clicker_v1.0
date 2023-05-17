@@ -10,30 +10,36 @@ POWER_UP_CHECK_INTERVAL_IN_SECS = 30
 
 
 def main():
-    # initialize the CookieClicker object with the chosen interval
+    # Instantiate the CookieClicker object with the specified power-up check interval
     cc = CookieClicker(interval=POWER_UP_CHECK_INTERVAL_IN_SECS)
-    # Click the cookie for the set amount of time before purchasing upgrades
+    # Start the game and perform actions
     cc.start()
-    # Display the ending cookies per second
-    print(cc.cookies_per_sec())
+    # Retrieve the cookies per second value
+    cps = cc.get_cookies_per_sec()
+    print(f"Cookies Per Second: {cps}")
     # Close the browser
     cc.quit()
-    # Check the high score
-    high_score(cc.cps)
+    # Check and display the high score
+    check_high_score(cps)
 
 
-def high_score(cps):
-    """Checks the current high score and displays results"""
-    with open("score.txt", "r") as file:
-        hs = float(file.read())
+def check_high_score(cps):
+    # Check the current high score and update if necessary
+    high_score = 0.0
+    try:
+        with open("score.txt", "r") as file:
+            high_score = float(file.read())
+    except FileNotFoundError:
+        pass
 
-    if float(cps) > hs:
+    if cps > high_score:
         with open("score.txt", "w") as file:
-            file.write(cps)
-        print("You have the new high score!")
+            file.write(str(cps))
+        print("Congratulations! You have a new high score!")
     else:
-        print(f"The current high score is: {cps} cookies per second")
+        print(f"The current high score is: {high_score} cookies per second")
 
 
 if __name__ == "__main__":
     main()
+    
