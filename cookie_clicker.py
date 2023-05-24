@@ -1,44 +1,66 @@
-"""
-This app run uses Selenium to play the classic version of Cookie Clicker for five minutes.
-You can adjust the time interval between buying upgrade to try to achieve a higher cookie per second score.
-"""
+import time
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from webdriver_manager.chrome import ChromeDriverManager
 
-from cookie_clicker import CookieClicker
-
-# Choose your power ups purchase interval
+DURATION_IN_MINS = 5
 POWER_UP_CHECK_INTERVAL_IN_SECS = 30
 
+class CookieClicker:
+    def __init__(self, interval):
+        self.check_interval = interval
+        self.duration = DURATION_IN_MINS
+        self.cps = 0
+        self.cookie = None
 
-def main():
-    # Instantiate the CookieClicker object with the specified power-up check interval
-    cc = CookieClicker(interval=POWER_UP_CHECK_INTERVAL_IN_SECS)
-    # Start the game and perform actions
-    cc.start()
-    # Retrieve the cookies per second value
-    cps = cc.get_cookies_per_sec()
-    print(f"Cookies Per Second: {cps}")
-    # Close the browser
-    cc.quit()
-    # Check and display the high score
-    check_high_score(cps)
+    def initialize_driver(self):
+        # Set up the Selenium WebDriver
+        service = Service(ChromeDriverManager().install())
+        self.driver = webdriver.Chrome(service=service)
+        self.driver.get("http://orteil.dashnet.org/experiments/cookie/")
+        self.cookie = self.driver.find_element(by=By.ID, value="cookie")
 
+    def click_cookie(self):
+        # Click the cookie element repeatedly for the specified interval
+        end_time = time.time() + self.check_interval
+        while time.time() < end_time:
+            self.cookie.click()
 
-def check_high_score(cps):
-    # Check the current high score and update if necessary
-    high_score = 0.0
-    try:
-        with open("score.txt", "r") as file:
-            high_score = float(file.read())
-    except FileNotFoundError:
-        pass
+    def buy_power_up(self):
+        # Search for and purchase the most expensive affordable power-up
+        while True:
+            time.sleep(0.1)
+            balance = int(self.driver.find_element(by=By.ID, value="money").text.replace(",", ""))
+            power_up_elements = self.driver.find_elements(by=By.CSS_SELECTOR, value="div#store div b")
+            power_up_dict = {}
+            for power_up in power_up_elements:
+                text = power_up.text
+                if text != "":
+                    name, cost = text.split("-")[0].strip(), int(text.replace(",", "").split()[-1])
+                    power_up_dict[name] = cost
+            affordable_power_ups = [name for name, cost in power_up_dict.items() if balance >= cost]
+            if affordable_power_ups:
+                self.driver.find_element(by=By.CSS_SELECTOR, value=f"div#buy{affordable_power_ups[-1]}").click()
+            balance = int(self.driver.find_element(by=By.ID, value="money").text.replace(",", ""))
+            min_power_up_cost = min(power_up_dict.values())
+            if balance < min_power_up_cost:
+                break
 
-    if cps > high_score:
-        with open("score.txt", "w") as file:
-            file.write(str(cps))
-        print("Congratulations! You have a new high score!")
-    else:
-        print(f"The current high score is: {high_score} cookies per second")
+    def get_cookies_per_sec(self):
+        # Retrieve and return the current cookies per second value
+        cps_element = self.driver.find_element(by=By.CSS_SELECTOR, value="div#cps")
+        self.cps = float(cps_element.text.split()[-1])
+        return self.cps
 
+    def start(self):
+        # Start the game by clicking the cookie and buying power-ups for the specified duration
+        self.initialize_driver()
+        end_time = time.time() + (60 * self.duration)
+        while time.time() < end_time:
+            self.click_cookie()
+            self.buy_power_up()
 
-if __name__ == "__main__":
-    main()
+    def quit(self):
+        # Close the Selenium browser
+        self.driver.quit()
